@@ -191,8 +191,9 @@ def main():
         for point in bezier_ctrl_points:
             cv.circle(debug_image, point, 10, (0,255,0), -1)
 
-        if (bezier_ctrl_points) == 4:
-            debug_image = draw_bezier_line(debug_image, bezier_ctrl_points)
+        if (len(bezier_ctrl_points)) == 4:
+            debug_image = draw_bezier_curve(debug_image, bezier_ctrl_points, 100)
+            
 
         # 画面反映 #############################################################
         cv.imshow('Hand Gesture Recognition', debug_image)
@@ -514,33 +515,39 @@ def draw_bounding_rect(use_brect, image, brect):
 bezier_ctrl_points = []
 open_hand = True
 
-def binomial_coeffs(n):
-    C = np.ones(n + 1, dtype=np.int32)
-    for k in range(1, n + 1):
-        C[k] = C[k - 1] * (n - k + 1) // k
+def binomial_coefficients(n):
+    """Compute binomial coefficients C for given value of n."""
+    C = np.zeros(n + 1, dtype=int)
+    for k in range(n + 1):
+        C[k] = 1
+        for j in range(n, k, -1):
+            C[k] *= j
+        for j in range(1, n - k + 1):
+            C[k] //= j
     return C
 
-# Function to compute a point on the Bezier curve
-def compute_bez_pt(u, nCtrlPts, ctrlPts, C):
-    n = nCtrlPts - 1
-    bezPt = np.zeros(3, dtype=np.float32)
+def compute_bezier_point(u, control_points, C):
+    n = len(control_points) - 1
+    bezier_point = np.zeros(2)  # 2D point (x, y)
     
-    for k in range(nCtrlPts):
-        bezBlendFcn = C[k] * (u ** k) * ((1 - u) ** (n - k))
-        bezPt += ctrlPts[k] * bezBlendFcn
+    for k in range(len(control_points)):
+        bez_blend_func = C[k] * (u ** k) * ((1 - u) ** (n - k))
+        bezier_point[0] += control_points[k][0] * bez_blend_func
+        bezier_point[1] += control_points[k][1] * bez_blend_func
     
-    return bezPt
+    return bezier_point
 
-def draw_bezier_line(ctrlPts, nCtrlPts, nBezCurvePts, img):
-    C = binomial_coeffs(nCtrlPts - 1)
+def draw_bezier_curve(image, control_points, n_curve_points):
+    """Draw a Bézier curve using given control points."""
+    n_ctrl_pts = len(control_points)
+    C = binomial_coefficients(n_ctrl_pts - 1)
     
-    for k in range(nBezCurvePts + 1):
-        u = k / nBezCurvePts
-        bezCurvePt = compute_bez_pt(u, nCtrlPts, ctrlPts, C)
-        
-        # Plot the point on the image
-        x, y = int(bezCurvePt[0]), int(bezCurvePt[1])
-        cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
+    for i in range(n_curve_points + 1):
+        u = i / n_curve_points
+        bezier_point = compute_bezier_point(u, control_points, C)
+        cv.circle(image, (int(bezier_point[0]), int(bezier_point[1])), 1, (0, 0, 255), -1)
+    
+    return image
 
 def get_bezier_ctrl_points(image, brect, handedness, hand_sign_text,
                       finger_gesture_text):
